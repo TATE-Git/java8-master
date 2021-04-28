@@ -1,11 +1,15 @@
 package me.whiteship.java8to11;
 
-import java.time.Duration;
+import java.text.SimpleDateFormat;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -17,7 +21,7 @@ import java.util.stream.Stream;
 
 public class App {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
 //        int size = 1500;
 //        int[] numbers = new int[size];
 //        Random random = new Random();
@@ -463,6 +467,655 @@ public class App {
 //        Optional<Optional<Progress>> progress1 = optional.map(OnlineClass::getProgress);
 //        Optional<Progress> progress2 = progress1.orElseThrow();
 
+/*        12. Date와 Time API 소개
+
+        자바 8에 새로운 날짜와 시간 API가 생긴 이유
+        ● 그전까지 사용하던 java.util.Date 클래스는 mutable 하기 때문에 thead safe하지 않다.
+        ● 클래스 이름이 명확하지 않다. Date인데 시간까지 다룬다.
+        ● 버그 발생할 여지가 많다. (타입 안정성이 없고, 월이 0부터 시작한다거나..)
+        ● 날짜 시간 처리가 복잡한 애플리케이션에서는 보통 Joda Time을 쓰곤했다.
+
+        자바 8에서 제공하는 Date-Time API
+        ● JSR-310 스팩의 구현체를 제공한다.
+        ● 디자인 철학
+            ○ Clear
+            ○ Fluent
+            ○ Immutable
+            ○ Extensible
+
+        주요 API
+        ● 기계용 시간 (machine time)과 인류용 시간(human time)으로 나눌 수 있다.
+        ● 기계용 시간은 EPOCK (1970년 1월 1일 0시 0분 0초)부터 현재까지의 타임스탬프를 표현한다.
+        ● 인류용 시간은 우리가 흔히 사용하는 연,월,일,시,분,초 등을 표현한다.
+        ● 타임스탬프는 Instant를 사용한다.
+        ● 특정 날짜(LocalDate), 시간(LocalTime), 일시(LocalDateTime)를 사용할 수 있다.
+        ● 기간을 표현할 때는 Duration (시간 기반)과 Period (날짜 기반)를 사용할 수 있다.
+        ● DateTimeFormatter를 사용해서 일시를 특정한 문자열로 포매팅할 수 있다.*/
+
+//        //java8 이전 코드 - 안전하기 쓰기 어렵다.
+//        Date date = new Date();
+//        long time = date.getTime();
+////        Calendar calendar = new GregorianCalendar();
+////        //java.text.SimpleDateFormat
+////        SimpleDateFormat dateFormat = new SimpleDateFormat();
+//        System.out.println(date);
+//        System.out.println(time);
+//
+//        Thread.sleep(1000*3);
+//        Date after3Seconds = new Date();
+//        System.out.println(after3Seconds);
+//        after3Seconds.setTime(time);
+//        System.out.println(after3Seconds);
+
+//        //버그 발생
+//        Calendar keesunBirthDay = new GregorianCalendar(1982, Calendar.AUGUST, 15);
+//        System.out.println(keesunBirthDay.getTime());
+//        keesunBirthDay.add(Calendar.DAY_OF_YEAR,1);
+//        System.out.println(keesunBirthDay.getTime());
+//        //java.time.chrono.//다양한 달력 시스템
+
+//        //기계용 시간
+//        Date date = new Date();
+//        long time = date.getTime();
+//        System.out.println(time);
+
+/*        13. Date와 Time API
+
+        지금 이 순간을 기계 시간으로 표현하는 방법
+        ● Instant.now(): 현재 UTC (GMT)를 리턴한다.
+        ● Universal Time Coordinated == Greenwich Mean Time
+        Instant now = Instant.now();
+        System.out.println(now);
+        System.out.println(now.atZone(ZoneId.of("UTC")));
+        ZonedDateTime zonedDateTime = now.atZone(ZoneId.systemDefault());
+        System.out.println(zonedDateTime);
+
+        인류용 일시를 표현하는 방법
+        ● LocalDateTime.now(): 현재 시스템 Zone에 해당하는(로컬) 일시를 리턴한다.
+        ● LocalDateTime.of(int, Month, int, int, int, int): 로컬의 특정 일시를 리턴한다.
+        ● ZonedDateTime.of(int, Month, int, int, int, int, ZoneId): 특정 Zone의 특정 일시를  리턴한다.
+
+        기간을 표현하는 방법
+        ● Period / Duration . beteen()
+        Period between = Period.between(today, birthDay);
+        System.out.println(between.get(ChronoUnit.DAYS));
+
+        파싱 또는 포매팅
+        ● 미리 정의해둔 포맷 참고
+        https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#predefined
+        ● LocalDateTime.parse(String, DateTimeFormatter);
+        ● Dateteme
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern("MM/d/yyyy");
+        LocalDate date = LocalDate.parse("07/15/1982", formatter);
+        System.out.println(date);
+        System.out.println(today.format(formatter));
+
+        레거시 API 지원
+        ● GregorianCalendar와 Date 타입의 인스턴스를 Instant나 ZonedDateTime으로 변환 가능.
+        ● java.util.TimeZone에서 java.time.ZoneId로 상호 변환 가능.
+        ZoneId newZoneAPI = TimeZone.getTimeZone("PST").toZoneId();
+        TimeZone legacyZoneAPI = TimeZone.getTimeZone(newZoneAPI);
+        Instant newInstant = new Date().toInstant();
+        Date legacyInstant = Date.from(newInstant);*/
+
+//        Instant instant = Instant.now();
+//        System.out.println(instant); //기준시 UTC GMT
+//        System.out.println(instant.atZone(ZoneId.of("UTC"))); //기준시 UTC GMT
+//        ZoneId zone = ZoneId.systemDefault();
+//        System.out.println(zone);
+//        ZonedDateTime zonedDateTime = instant.atZone(zone);
+//        System.out.println(zonedDateTime);
+
+//        LocalDateTime now = LocalDateTime.now();
+//        System.out.println(now);
+//        LocalDateTime birthDay = LocalDateTime.of(1982,15,0,0,0);
+//        ZonedDateTime nowInKorea = ZonedDateTime.now(ZoneId.of("Asia/Seoul"));
+//        System.out.println(nowInKorea);
+//
+//        Instant nowInstant = Instant.now();
+//        ZonedDateTime zonedDateTime = nowInstant.atZone(ZoneId.of("Asia/Seoul"));
+//        System.out.println(zonedDateTime);
+
+//        //기간을 비교
+//        LocalDate today = LocalDate.now();
+//        LocalDate thisYearBirthday = LocalDate.of(2020, Month.JULY, 15);
+//
+//        Period period = Period.between(today, thisYearBirthday);
+//        System.out.println(period.get(ChronoUnit.DAYS));
+//        Period until = today.until(thisYearBirthday);
+//        System.out.println(until.get(ChronoUnit.DAYS));
+
+//        //머신용 시간 비교
+//        Instant now = Instant.now();
+//        Instant plus = now.plus(10, ChronoUnit.SECONDS);
+//        Duration between = Duration.between(now, plus);
+//        System.out.println(between.getSeconds());
+
+//        //format
+//        LocalDateTime now = LocalDateTime.now();
+//        System.out.println(now);
+//        System.out.println(DateTimeFormatter.ofPattern("MM/dd/yyyy"));
+//        DateTimeFormatter MMddyyyy = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+//        System.out.println(now.format(MMddyyyy));
+
+//        //parse
+//        LocalDateTime now = LocalDateTime.now();
+//        DateTimeFormatter MMddyyyy = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+//        System.out.println(now.format(MMddyyyy));
+//
+//        LocalDate parse = LocalDate.parse("07/15/1982", MMddyyyy);
+//        System.out.println(parse);
+//
+//        Date date = new Date();
+//        Instant instant = date.toInstant();
+//        Date newDate = Date.from(instant);
+//
+//        GregorianCalendar gregorianCalendar = new GregorianCalendar();
+////        LocalDateTime dateTime = gregorianCalendar.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+//        ZonedDateTime dateTime = gregorianCalendar.toInstant().atZone(ZoneId.systemDefault());
+//        GregorianCalendar from = GregorianCalendar.from(dateTime);
+//
+//        ZoneId zoneId = TimeZone.getTimeZone("PST").toZoneId();
+////        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
+//        now.plus(10, ChronoUnit.DAYS);
+
+/*        14. 자바 Concurrent 프로그래밍 소개
+
+        Concurrent 소프트웨어
+        ● 동시에 여러 작업을 할 수 있는 소프트웨어
+        ● 예) 웹 브라우저로 유튜브를 보면서 키보드로 문서에 타이핑을 할 수 있다.
+        ● 예) 녹화를 하면서 인텔리J로 코딩을 하고 워드에 적어둔 문서를 보거나 수정할 수 있다.
+
+        자바에서 지원하는 컨커런트 프로그래밍
+        ● 멀티프로세싱 (ProcessBuilder)
+        ● 멀티쓰레드
+
+        자바 멀티쓰레드 프로그래밍
+        ● Thread / Runnable
+
+        Thread 상속
+        public static void main(String[] args) {
+            HelloThread helloThread = new HelloThread();
+            helloThread.start();
+            System.out.println("hello : " + Thread.currentThread().getName());
+        }
+        static class HelloThread extends Thread {
+            @Override
+            public void run() {
+                System.out.println("world : " + Thread.currentThread().getName());
+            }
+        }
+
+        Runnable 구현 또는 람다
+        Thread thread = new Thread(() -> System.out.println("world : " + Thread.currentThread().getName()));
+        thread.start();
+        System.out.println("hello : " + Thread.currentThread().getName());
+
+        쓰레드 주요 기능
+        ● 현재 쓰레드 멈춰두기 (sleep): 다른 쓰레드가 처리할 수 있도록 기회를 주지만 그렇다고 락을 놔주진 않는다. (잘못하면 데드락 걸릴 수 있겠죠.)
+        ● 다른 쓰레드 깨우기 (interupt): 다른 쓰레드를 깨워서 interruptedExeption을 발생 시킨다. 그 에러가 발생했을 때 할 일은 코딩하기 나름. 종료 시킬 수도 있고 계속 하던 일 할 수도 있고.
+        ● 다른 쓰레드 기다리기 (join): 다른 쓰레드가 끝날 때까지 기다린다.*/
+
+//        System.out.println(Thread.currentThread().getName());
+
+//        // 쓰레드 순서 보장 못함
+//        MyThread myThread = new MyThread();
+//        myThread.start();
+//        System.out.println("Hello");
+
+////        //람다로 바꾸기 전
+////        Thread thread = new Thread(new Runnable() {
+////            @Override
+////            public void run() {
+////                System.out.println("Thread: " + Thread.currentThread().getName());
+////            }
+////        });
+//        //람다로 바꾼 후
+//        Thread thread = new Thread(() -> {
+//            try {
+//                Thread.sleep(1000L);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//            System.out.println("Thread: " + Thread.currentThread().getName());
+//        });
+//        thread.start();
+//        System.out.println("Hello: " + Thread.currentThread().getName());
+
+//        Thread thread = new Thread(() -> {
+//            while(true){
+//                System.out.println("Thread: " + Thread.currentThread().getName());
+//                try {
+//                    Thread.sleep(1000L);
+//                } catch (InterruptedException e) {
+////                    e.printStackTrace();
+////                    throw new IllegalStateException(e);
+//                    System.out.println("interrupted");
+//                    return;
+//                }
+//            }
+//        });
+//        thread.start();
+//        System.out.println("Hello: " + Thread.currentThread().getName());
+//        Thread.sleep(3000L);
+//        thread.interrupt();
+
+//        Thread thread = new Thread(() -> {
+//            while(true){
+//                System.out.println("Thread: " + Thread.currentThread().getName());
+//                try {
+//                    Thread.sleep(3000L);
+//                } catch (InterruptedException e) {
+//                    throw new IllegalStateException();
+//                }
+//            }
+//        });
+//        thread.start();
+//        System.out.println("Hello: " + Thread.currentThread().getName());
+//        try {
+//            thread.join();
+//        }catch (InterruptedException e){
+//            e.printStackTrace();
+//        }
+//        thread.join();
+//        System.out.println(thread + "is finished");
+
+/*        15. Executors
+
+        고수준 (High-Level) Concurrency 프로그래밍
+        ● 쓰레드를 만들고 관리하는 작업을 애플리케이션에서 분리.
+        ● 그런 기능을 Executors에게 위임.
+
+        Executors가 하는 일
+        ● 쓰레드 만들기: 애플리케이션이 사용할 쓰레드 풀을 만들어 관리한다.
+        ● 쓰레드 관리: 쓰레드 생명 주기를 관리한다.
+        ● 작업 처리 및 실행: 쓰레드로 실행할 작업을 제공할 수 있는 API를 제공한다.
+
+        주요 인터페이스
+        ● Executor: execute(Runnable)
+        ● ExecutorService: Executor 상속 받은 인터페이스로, Callable도 실행할 수 있으며, Executor를 종료 시키거나, 여러 Callable을 동시에 실행하는 등의 기능을 제공한다.
+        ● ScheduledExecutorService: ExecutorService를 상속 받은 인터페이스로 특정 시간
+
+        이후에 또는 주기적으로 작업을 실행할 수 있다.
+        ExecutorService로 작업 실행하기
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(() -> {
+            System.out.println("Hello :" + Thread.currentThread().getName());
+        });
+
+        ExecutorService로 멈추기
+        executorService.shutdown(); // 처리중인 작업 기다렸다가 종료
+        executorService.shutdownNow(); // 당장 종료
+
+        Fork/Join 프레임워크
+        ● ExecutorService의 구현체로 손쉽게 멀티 프로세서를 활용할 수 있게끔 도와준다.*/
+
+//        ExecutorService executorService = Executors.newSingleThreadExecutor();
+////        //래퍼런스 하기전
+////        executorService.submit(new Runnable() {
+////            @Override
+////            public void run() {
+////                System.out.println("Thread " + Thread.currentThread().getName());
+////            }
+////        });
+//        //래퍼런스 한 후
+//        executorService.submit(() -> System.out.println("Thread " + Thread.currentThread().getName()));
+////        //계속돌기 때문에 꼭 shotdown 해야함 - graceful shutdown
+////        executorService.shutdown();
+//        executorService.shutdownNow();
+
+//        ExecutorService executorService = Executors.newFixedThreadPool(2);
+//        executorService.submit(getRunnable("Hello"));
+//        executorService.submit(getRunnable("the"));
+//        executorService.submit(getRunnable("Jave"));
+//        executorService.submit(getRunnable("8"));
+//        executorService.submit(getRunnable("Thread"));
+//        executorService.shutdown();
+
+//        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+////        executorService.schedule(getRunnable("Hello"), 3, TimeUnit.SECONDS);
+//        executorService.scheduleAtFixedRate(getRunnable("Hello"), 1, 2, TimeUnit.SECONDS);
+
+/*        16. Callable과 Future
+
+        Callable
+        ● Runnable과 유사하지만 작업의 결과를 받을 수 있다.
+
+        Future
+        ● 비동기적인 작업의 현재 상태를 조회하거나 결과를 가져올 수 있다.
+        ● https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Future.html
+
+        결과를 가져오기 get()
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        Future<String> helloFuture = executorService.submit(() -> {
+        Thread.sleep(2000L);
+        return "Callable";
+        });
+        System.out.println("Hello");
+        String result = helloFuture.get();
+        System.out.println(result);
+        executorService.shutdown();
+        ● 블록킹 콜이다.
+        ● 타임아웃(최대한으로 기다릴 시간)을 설정할 수 있다.
+
+        작업 상태 확인하기 isDone()
+        ● 완료 했으면 true 아니면 false를 리턴한다.
+
+        작업 취소하기 cancel()
+        ● 취소 했으면 true 못했으면 false를 리턴한다.
+        ● parameter로 true를 전달하면 현재 진행중인 쓰레드를 interrupt하고 그러지 않으면 현재 진행중인 작업이 끝날때까지 기다린다.
+
+        여러 작업 동시에 실행하기 invokeAll()
+        ● 동시에 실행한 작업 중에 제일 오래 걸리는 작업 만큼 시간이 걸린다.
+
+        여러 작업 중에 하나라도 먼저 응답이 오면 끝내기 invokeAny()
+        ● 동시에 실행한 작업 중에 제일 짧게 걸리는 작업 만큼 시간이 걸린다.
+        ● 블록킹 콜이다.*/
+
+//        ExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+////        //래퍼런스 생성전
+////        Callable <String> hello = new Callable<String>() {
+////            @Override
+////            public String call() throws Exception {
+////                return null;
+////            }
+////        };
+//        Callable <String> hello = () -> {
+//            Thread.sleep(2000L);
+//            return  "Hello";
+//        };
+//
+//        Future<String> submit = executorService.submit(hello);
+//        System.out.println("Started");
+//        submit.get();//블록킹
+//        System.out.println("End!!!!");
+//        executorService.shutdown();
+
+//        ExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+//        Callable <String> hello = () -> {
+//            Thread.sleep(2000L);
+//            return  "Hello";
+//        };
+//        Future<String> helloFuture = executorService.submit(hello);
+//        System.out.println(helloFuture.isDone());
+//        System.out.println("Started");
+//        helloFuture.cancel(false);
+//        System.out.println(helloFuture.isDone());
+//        System.out.println("End!!!!");
+//        executorService.shutdown();
+
+//        ExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+//        Callable <String> hello = () -> {
+//            Thread.sleep(2000L);
+//            return  "Hello";
+//        };
+//        Callable <String> java = () -> {
+//            Thread.sleep(3000L);
+//            return  "java";
+//        };
+//        Callable <String> keesun = () -> {
+//            Thread.sleep(1000L);
+//            return  "keesun";
+//        };
+////        executorService.invokeAll(Arrays.asList());
+//        List<Future<String>> futures = executorService.invokeAll(Arrays.asList(hello, java, keesun));
+//        for(Future<String> f : futures){
+//            System.out.println(f.get());
+//        }
+//        executorService.shutdown();
+
+/*        17. CompletableFuture 1
+
+        자바에서 비동기(Asynchronous) 프로그래밍을 가능케하는 인터페이스.
+        ● Future를 사용해서도 어느정도 가능했지만 하기 힘들 일들이 많았다.
+
+        Future로는 하기 어렵던 작업들
+        ● Future를 외부에서 완료 시킬 수 없다. 취소하거나, get()에 타임아웃을 설정할 수는 있다.
+        ● 블로킹 코드(get())를 사용하지 않고서는 작업이 끝났을 때 콜백을 실행할 수 없다.
+        ● 여러 Future를 조합할 수 없다, 예) Event 정보 가져온 다음 Event에 참석하는 회원 목록 가져오기
+        ● 예외 처리용 API를 제공하지 않는다.
+
+        CompletableFuture
+        ● Implements Future
+        ● Implements CompletionStage
+
+        비동기로 작업 실행하기
+        ● 리턴값이 없는 경우: runAsync()
+        ● 리턴값이 있는 경우: supplyAsync()
+        ● 원하는 Executor(쓰레드풀)를 사용해서 실행할 수도 있다. (기본은 ForkJoinPool.commonPool())
+
+        콜백 제공하기
+        ● thenApply(Function): 리턴값을 받아서 다른 값으로 바꾸는 콜백
+        ● thenAccept(Consumer): 리턴값을 또 다른 작업을 처리하는 콜백 (리턴없이)
+        ● thenRun(Runnable): 리턴값 받지 다른 작업을 처리하는 콜백
+        ● 콜백 자체를 또 다른 쓰레드에서 실행할 수 있다.*/
+
+//        ExecutorService executorService = Executors.newFixedThreadPool(4);
+//        Future<String> future = executorService.submit(() -> "hello");
+//        future.get();
+
+//        CompletableFuture<String> future = new CompletableFuture<>();
+//        future.complete("java");
+//        System.out.println(future.get());
+
+//        CompletableFuture<String> future = CompletableFuture.completedFuture("java");
+//        System.out.println(future.get());
+
+//        CompletableFuture<Void> voidCompletableFuture = CompletableFuture.runAsync(() -> {
+//            System.out.println("java" + Thread.currentThread().getName());
+//        });
+
+//        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+//            System.out.println("java" + Thread.currentThread().getName());
+//        });
+//        future.get();
+
+//        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("java" + Thread.currentThread().getName());
+//            return "Hello";
+//        });
+//        System.out.println(future.get());
+
+//        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("java" + Thread.currentThread().getName());
+//            return "Hello";
+//        }).thenApply((s) -> {
+//            System.out.println(Thread.currentThread().getName());
+//            return  s.toUpperCase();
+//        });
+
+//        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("java" + Thread.currentThread().getName());
+//            return "Hello";
+//        }).thenAccept((s) -> {
+//            System.out.println(Thread.currentThread().getName());
+//            System.out.println(s.toUpperCase());
+//        });
+//        future.get();
+
+//        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("java" + Thread.currentThread().getName());
+//            return "Hello";
+//        }).thenRun((s) -> {
+//            System.out.println(Thread.currentThread().getName());
+//        });
+//        future.get();
+
+/*        18. CompletableFuture 2
+
+        조합하기
+        ● thenCompose(): 두 작업이 서로 이어서 실행하도록 조합
+        ● thenCombine(): 두 작업을 독립적으로 실행하고 둘 다 종료 했을 때 콜백 실행
+        ● allOf(): 여러 작업을 모두 실행하고 모든 작업 결과에 콜백 실행
+        ● anyOf(): 여러 작업 중에 가장 빨리 끝난 하나의 결과에 콜백 실행
+
+        예외처리
+        ● exeptionally(Function)
+        ● handle(BiFunction):*/
+
+//        CompletableFuture<String> hello = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("Hello" + Thread.currentThread().getName());
+//            return "Hello";
+//        });
+//        CompletableFuture<String> future = hello.thenCompose(App::getWorld);
+//        System.out.println(future.get());
+
+//        CompletableFuture<String> hello = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("Hello" + Thread.currentThread().getName());
+//            return "Hello";
+//        });
+//        CompletableFuture<String> world = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("World" + Thread.currentThread().getName());
+//            return "World";
+//        });
+//        CompletableFuture<String> future = hello.thenCombine(world, (h, w) -> h + "" + w);
+//        System.out.println(future.get());
+
+//        CompletableFuture<String> hello = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("Hello" + Thread.currentThread().getName());
+//            return "Hello";
+//        });
+//        CompletableFuture<String> world = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("World" + Thread.currentThread().getName());
+//            return "World";
+//        });
+//        CompletableFuture<Void> future = CompletableFuture.allOf(hello, world)
+//                .thenAccept(System.out::println);
+//        System.out.println(future.get());
+
+//        CompletableFuture<String> hello = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("Hello" + Thread.currentThread().getName());
+//            return "Hello";
+//        });
+//        CompletableFuture<String> world = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("World" + Thread.currentThread().getName());
+//            return "World";
+//        });
+//        List<CompletableFuture<String>> futures = Arrays.asList(hello, world);
+//        CompletableFuture[] futuresArray = futures.toArray(new CompletableFuture[futures.size()]);
+//        CompletableFuture<List<String>> results = CompletableFuture.allOf(futuresArray)
+//            .thenApply(v -> futures.stream()
+//                .map(CompletableFuture::join)
+//                .collect(Collectors.toList()));
+//            results.get().forEach(System.out::println);
+
+//        CompletableFuture<String> hello = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("Hello" + Thread.currentThread().getName());
+//            return "Hello";
+//        });
+//        CompletableFuture<String> world = CompletableFuture.supplyAsync(() -> {
+//            System.out.println("World" + Thread.currentThread().getName());
+//            return "World";
+//        });
+//        CompletableFuture<Void> future = CompletableFuture.anyOf(hello, world).thenAccept(System.out::println);
+//        future.get();
+
+//        //에러처리
+//        boolean throwError = true;
+//        CompletableFuture<String> hello = CompletableFuture.supplyAsync(() -> {
+//            if(throwError){
+//                throw new IllegalArgumentException();
+//            }
+//            System.out.println("Hello" + Thread.currentThread().getName());
+//            return "Hello";
+//        }).exceptionally(ex -> {
+//            System.out.println(ex);
+//           return "Error!";
+//        });
+//        System.out.println(hello.get());
+
+//        //에러처리
+//        boolean throwError = true;
+//        CompletableFuture<String> hello = CompletableFuture.supplyAsync(() -> {
+//            if(throwError){
+//                throw new IllegalArgumentException();
+//            }
+//            System.out.println("Hello" + Thread.currentThread().getName());
+//            return "Hello";
+//        }).handle((result, ex) -> {
+//            if(ex != null){
+//                System.out.println(ex);
+//                return "Error!";
+//            }
+//            return result;
+//        });
+//        System.out.println(hello.get());
+
+/*        19. 애노테이션의 변화
+
+        애노테이션 관련 두가지 큰 변화
+        ● 자바 8부터 애노테이션을 타입 선언부에도 사용할 수 있게 됨.
+        ● 자바 8부터 애노테이션을 중복해서 사용할 수 있게 됨.
+
+        타입 선언 부
+        ● 제네릭 타입
+        ● 변수 타입
+        ● 매개변수 타입
+        ● 예외 타입
+        ● ...
+
+        타입에 사용할 수 있으려면
+        ● TYPE_PARAMETER: 타입 변수에만 사용할 수 있다.
+        ● TYPE_USE: 타입 변수를 포함해서 모든 타입 선언부에 사용할 수 있다.
+
+        중복 사용할 수 있는 애노테이션을 만들기
+        ● 중복 사용할 애노테이션 만들기
+        ● 중복 애노테이션 컨테이너 만들기
+            ○ 컨테이너 애노테이션은 중복 애노테이션과 @Retention 및 @Target이 같거나 더 넓어야 한다.
+
+        Chicken.java (중복 사용할 애노테이션)
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target(ElementType.TYPE_USE)
+        @Repeatable(ChickenContainer.class)
+        public @interface Chicken {
+            String value();
+        }
+
+        ChickenContainer.java (중복 애노테이션의 컨테이너 애노테이션)
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target(ElementType.TYPE_USE)
+        public @interface ChickenContainer {
+            Chicken[] value();
+        }
+
+        컨테이너 애노테이션으로 중복 애노테이션 참조하기
+        @Chicken("양념")
+        @Chicken("마늘간장")
+        public class App {
+            public static void main(String[] args) {
+                ChickenContainer chickenContainer = App.class.getAnnotation(ChickenContainer.class);
+                Arrays.stream(chickenContainer.value()).forEach(c -> {
+                    System.out.println(c.value());
+                });
+            }
+        }  */
+
+
+    }
+
+    static class FeelsLikeChichen<@Chicken T>{
+        public static <C> void print(C c){
+
+        }
+    }
+
+    private static CompletableFuture<String> getWorld(String message){
+        return CompletableFuture.supplyAsync(() -> {
+            System.out.println("World " + Thread.currentThread().getName());
+            return message + "World";
+        });
+    }
+
+    private static Runnable getRunnable(String message) {
+        return () -> System.out.println(message + Thread.currentThread().getName());
+    }
+
+    static class MyThread extends Thread{
+        @Override
+        public void run(){
+            System.out.println("Thread: " + Thread.currentThread().getName());
+        }
     }
 
     private static OnlineClass createNewClass() {
